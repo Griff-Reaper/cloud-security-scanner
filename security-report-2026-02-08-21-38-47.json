@@ -1,0 +1,20 @@
+{
+  "scan_time": "2026-02-08T21:38:47.0644217-05:00",
+  "region": "us-east-1",
+  "findings": [
+    {
+      "check_name": "IAM User Without MFA",
+      "severity": "HIGH",
+      "resource": "cspm-audit-user",
+      "description": "IAM user does not have MFA (multi-factor authentication) enabled",
+      "timestamp": "2026-02-08T21:38:47.9087823-05:00"
+    }
+  ],
+  "summary": {
+    "critical": 0,
+    "high": 1,
+    "medium": 0,
+    "low": 0,
+    "total": 1
+  }
+}
