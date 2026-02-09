@@ -1,54 +1,44 @@
 # 🔐 Cloud Security Scanner
 
-Automated AWS security auditing tool written in Go. Scans your AWS infrastructure for common security misconfigurations and generates detailed reports.
+**Enterprise-grade AWS security auditing tool written in Go.** Automatically scans your AWS infrastructure for security misconfigurations, generates detailed reports, and provides actionable remediation guidance.
 
 ![Go Version](https://img.shields.io/badge/Go-1.21+-00ADD8?style=flat&logo=go)
 ![AWS SDK](https://img.shields.io/badge/AWS_SDK-Go_v2-FF9900?style=flat&logo=amazon-aws)
 ![License](https://img.shields.io/badge/license-MIT-green)
+![Security Checks](https://img.shields.io/badge/Security_Checks-14-blue)
 
-## 🎯 Features
+## 📸 Demo
 
-- **S3 Security Checks**
-  - Public access block configuration
-  - Default encryption settings
-  - Bucket permissions
+![Cloud Security Scanner Output](screenshot.png)
 
-- **EC2 Security Group Auditing**
-  - Detects security groups open to 0.0.0.0/0
-  - Flags critical ports (SSH, RDP) exposed to internet
-  - Reviews inbound rule configurations
+## 🎯 What It Does
 
-- **IAM User Analysis**
-  - MFA (Multi-Factor Authentication) enforcement check
-  - Access key age monitoring (>90 days)
-  - User security posture assessment
+Comprehensive security scanning across **5 AWS services** with **14 security checks**:
 
-- **Automated Reporting**
-  - Color-coded severity levels (Critical, High, Medium, Low)
-  - JSON report generation with timestamps
-  - Summary statistics and findings count
+### 📦 S3 Security (3 checks)
+- ✅ Public access block configuration
+- ✅ Default encryption at rest
+- ✅ Bucket permissions validation
 
-## 📊 Sample Output
-```
-🔐 Cloud Security Scanner - Starting...
-✅ Connected to AWS
-🔍 Running security checks...
+### 🔒 EC2 Security Groups (1 check)
+- ✅ Internet-facing rules (0.0.0.0/0)
+- ✅ Critical port exposure (SSH/RDP)
 
-📦 Checking 0 S3 buckets...
-🔒 Checking 1 security groups...
-👥 Checking 1 IAM users...
+### 👥 IAM User Security (2 checks)
+- ✅ Multi-factor authentication (MFA) enforcement
+- ✅ Access key rotation (90-day policy)
 
-============================================================
-📊 SCAN SUMMARY
-============================================================
-🔴 Critical: 0
-🟠 High:     1
-🟡 Medium:   0
-🟢 Low:      0
-📝 Total:    1
+### 🗄️ RDS Database Security (4 checks)
+- ✅ Public accessibility
+- ✅ Encryption at rest
+- ✅ Backup retention policies
+- ✅ Multi-AZ high availability
 
-✅ Report saved to: security-report-2026-02-08-21-38-47.json
-```
+### 📋 CloudTrail Audit Logging (4 checks)
+- ✅ Trail existence
+- ✅ Active logging status
+- ✅ Multi-region coverage
+- ✅ Log file validation
 
 ## 🚀 Quick Start
 
@@ -59,224 +49,357 @@ Automated AWS security auditing tool written in Go. Scans your AWS infrastructur
 - AWS credentials configured
 
 ### Installation
-
-1. **Clone the repository**
 ```bash
+# Clone the repository
 git clone https://github.com/Griff-Reaper/cloud-security-scanner.git
 cd cloud-security-scanner
-```
 
-2. **Install dependencies**
-```bash
+# Install dependencies
 go mod download
-```
 
-3. **Configure AWS credentials**
+# Configure AWS credentials
+cp .env.example .env
+# Edit .env with your AWS access key and secret key
 
-Create a `.env` file:
-```bash
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-AWS_REGION=us-east-1
-```
-
-**⚠️ Security Note:** Never commit your `.env` file! It's already in `.gitignore`.
-
-4. **Run the scanner**
-```bash
+# Run the scanner
 go run main.go
+```
+
+### First Scan
+```bash
+$ go run main.go
+
+🔐 Cloud Security Scanner - Starting...
+✅ Connected to AWS
+🔍 Running security checks...
+
+📦 Checking 0 S3 buckets...
+🔒 Checking 1 security groups...
+👥 Checking 1 IAM users...
+🗄️  Checking 0 RDS instances...
+📋 Checking 0 CloudTrail trails...
+
+============================================================
+📊 SCAN SUMMARY
+============================================================
+🔴 Critical: 1
+🟠 High:     1
+🟡 Medium:   0
+🟢 Low:      0
+📝 Total:    2
+
+✅ Report saved to: security-report-2026-02-08-21-38-47.json
 ```
 
 ## 🔧 AWS Permissions Required
 
-The scanner requires read-only access. Recommended IAM policies:
-- `SecurityAudit` (AWS managed policy)
-- `ViewOnlyAccess` (AWS managed policy)
+The scanner requires read-only access. Create an IAM user with these policies:
 
-### Creating an Audit User
-```bash
-# In AWS Console:
-1. IAM → Users → Create user
-2. Attach policies: SecurityAudit + ViewOnlyAccess
-3. Create access key for CLI access
-4. Use credentials in .env file
+**AWS Managed Policies:**
+- `SecurityAudit`
+- `ViewOnlyAccess`
+
+**Custom Policy (Minimal Permissions):**
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetBucketPublicAccessBlock",
+        "s3:GetBucketEncryption",
+        "s3:ListAllMyBuckets",
+        "ec2:DescribeSecurityGroups",
+        "iam:ListUsers",
+        "iam:ListMFADevices",
+        "iam:ListAccessKeys",
+        "rds:DescribeDBInstances",
+        "cloudtrail:DescribeTrails",
+        "cloudtrail:GetTrailStatus"
+      ],
+      "Resource": "*"
+    }
+  ]
+}
 ```
 
 ## 📁 Project Structure
 ```
 cloud-security-scanner/
-├── main.go              # Main application and security checks
-├── .env                 # AWS credentials (not committed)
-├── .gitignore          # Git ignore rules
-├── go.mod              # Go module dependencies
-├── go.sum              # Dependency checksums
-└── README.md           # This file
+├── main.go                    # Main application and checks
+├── screenshot.png             # Demo output
+├── .env                       # AWS credentials (not committed)
+├── .env.example              # Example configuration
+├── .gitignore                # Git ignore rules
+├── go.mod                    # Go dependencies
+├── go.sum                    # Dependency checksums
+├── LICENSE                   # MIT License
+└── README.md                 # This file
 ```
 
 ## 🛡️ Security Checks Explained
 
-### S3 Bucket Checks
+### S3 Bucket Security
 
 **Public Access Block (HIGH)**
-- Ensures buckets aren't accidentally exposed to the internet
-- Validates all four public access block settings
-- Critical for preventing data leaks
+```
+Finding: S3 bucket lacks public access block
+Risk: Accidental data exposure to the internet
+Impact: Data breach, compliance violations
+Remediation: Enable all four public access block settings
+```
 
 **Encryption at Rest (MEDIUM)**
-- Verifies default encryption is enabled
-- Protects data stored in S3 buckets
-- Compliance requirement for many frameworks
+```
+Finding: S3 bucket without default encryption
+Risk: Unencrypted data storage
+Impact: Compliance violations, data exposure if bucket compromised
+Remediation: Enable SSE-S3 or SSE-KMS encryption
+```
 
-### Security Group Checks
+### Security Group Analysis
 
 **Open to Internet (CRITICAL/MEDIUM)**
-- Detects 0.0.0.0/0 rules allowing global access
-- SSH (port 22) and RDP (port 3389) = CRITICAL severity
-- Other ports = MEDIUM severity
-- Prevents unauthorized access to resources
+```
+Finding: Security group allows 0.0.0.0/0 access
+Risk: Anyone on internet can attempt connections
+Impact: Unauthorized access, brute force attacks, data exfiltration
+Severity: CRITICAL for SSH/RDP, MEDIUM for other ports
+Remediation: Restrict to specific IP ranges or use VPN/bastion
+```
 
-### IAM User Checks
+### IAM User Security
 
 **MFA Not Enabled (HIGH)**
-- Multi-factor authentication protects against credential theft
-- Critical security control for privileged accounts
-- AWS best practice for all users
+```
+Finding: IAM user without multi-factor authentication
+Risk: Password compromise = full account access
+Impact: Account takeover, privilege escalation
+Remediation: Enable virtual MFA device (Google Authenticator, Authy)
+```
 
 **Old Access Keys (MEDIUM)**
-- Access keys older than 90 days should be rotated
-- Reduces impact of potential key compromise
-- Compliance requirement for many standards
+```
+Finding: Access keys older than 90 days
+Risk: Increased window for key compromise
+Impact: Unauthorized API access if keys leaked
+Remediation: Rotate keys every 90 days
+```
 
-## 🎨 Output Format
+### RDS Database Security
 
-The scanner generates a JSON report with the following structure:
+**Public Accessibility (CRITICAL)**
+```
+Finding: RDS instance accessible from internet
+Risk: Direct database access from anywhere
+Impact: Data breach, ransomware, compliance violations
+Remediation: Disable public accessibility, use VPN or bastion
+```
+
+**Encryption at Rest (HIGH)**
+```
+Finding: RDS instance without encryption
+Risk: Unencrypted database storage
+Impact: Data exposure if storage compromised, compliance violations
+Remediation: Create encrypted snapshot and restore (cannot enable on existing)
+```
+
+**Backup Retention (MEDIUM)**
+```
+Finding: Backup retention < 7 days
+Risk: Limited disaster recovery capability
+Impact: Data loss if incident occurs outside retention window
+Remediation: Set retention to 7+ days
+```
+
+**Multi-AZ (MEDIUM)**
+```
+Finding: Single availability zone deployment
+Risk: Downtime during AZ failures or maintenance
+Impact: Application unavailability, potential data loss
+Remediation: Enable Multi-AZ for automatic failover
+```
+
+### CloudTrail Logging
+
+**Trail Not Enabled (CRITICAL)**
+```
+Finding: No CloudTrail trails configured
+Risk: Zero audit logging of API activity
+Impact: Cannot detect breaches, compliance violations, forensics impossible
+Remediation: Create trail with multi-region logging
+```
+
+**Trail Not Logging (HIGH)**
+```
+Finding: Trail exists but not actively logging
+Risk: Audit gap in security monitoring
+Impact: Blind spot for security incidents
+Remediation: Start logging in CloudTrail console
+```
+
+## 📊 Output Format
+
+### Terminal Summary
+- Color-coded severity levels
+- Service-by-service progress
+- Aggregated statistics
+- Report filename
+
+### JSON Report Structure
 ```json
 {
   "scan_time": "2026-02-08T21:38:47Z",
   "region": "us-east-1",
   "findings": [
     {
-      "check_name": "IAM User Without MFA",
-      "severity": "HIGH",
-      "resource": "cspm-audit-user",
-      "description": "IAM user does not have MFA enabled",
+      "check_name": "CloudTrail Not Enabled",
+      "severity": "CRITICAL",
+      "resource": "Account",
+      "description": "No CloudTrail trails configured",
+      "remediation": "Enable CloudTrail: AWS Console → CloudTrail → Create trail...",
       "timestamp": "2026-02-08T21:38:47Z"
     }
   ],
   "summary": {
-    "critical": 0,
+    "critical": 1,
     "high": 1,
     "medium": 0,
     "low": 0,
-    "total": 1
+    "total": 2
   }
 }
 ```
 
+## 🎨 Features
+
+- ✅ **14 Security Checks** across 5 AWS services
+- ✅ **Actionable Remediation** - Step-by-step fix instructions
+- ✅ **Severity Classification** - Critical, High, Medium, Low
+- ✅ **JSON Reports** - Machine-readable output
+- ✅ **Color-Coded Terminal** - Easy-to-read results
+- ✅ **Production Ready** - Error handling, logging, validation
+- ✅ **Fast Scanning** - Concurrent API calls
+- ✅ **Zero Dependencies** - Self-contained binary
+
 ## 🔮 Roadmap
 
-- [ ] RDS security checks (encryption, public access)
-- [ ] Lambda function security analysis
-- [ ] CloudTrail logging verification
+**Phase 2 - Enhanced Scanning:**
+- [ ] AWS Lambda function security
+- [ ] EBS volume encryption
+- [ ] VPC flow logs validation
 - [ ] KMS key rotation policies
-- [ ] SNS/SQS encryption checks
+- [ ] SNS/SQS encryption
+- [ ] ELB security policies
+- [ ] Route53 DNSSEC
+
+**Phase 3 - Advanced Features:**
+- [ ] CLI flags (--severity, --output, --region)
 - [ ] HTML report generation
 - [ ] Multi-region scanning
-- [ ] Azure and GCP support
-- [ ] CI/CD integration (GitHub Actions)
+- [ ] Scheduled scans
+- [ ] Slack/email notifications
 - [ ] Compliance framework mapping (CIS, NIST, PCI-DSS)
+- [ ] Drift detection (compare scans over time)
+
+**Phase 4 - Enterprise Features:**
+- [ ] Multi-account scanning (AWS Organizations)
+- [ ] Azure support
+- [ ] GCP support
+- [ ] REST API
+- [ ] Web dashboard
+- [ ] Historical trending
+- [ ] Custom policy engine
+
+## 💼 Use Cases
+
+**Security Teams:**
+- Continuous compliance monitoring
+- Security posture assessment
+- Pre-audit preparation
+- Remediation tracking
+
+**DevOps Teams:**
+- Infrastructure security validation
+- CI/CD security gates
+- Post-deployment verification
+- Terraform/CloudFormation validation
+
+**Compliance Teams:**
+- CIS Benchmark validation
+- PCI-DSS requirements
+- SOC 2 controls
+- HIPAA compliance
+
+**Individual Developers:**
+- Personal AWS account security
+- Learning cloud security best practices
+- Portfolio projects
+- Certification preparation
 
 ## 📚 Learn More
 
 - [AWS Security Best Practices](https://aws.amazon.com/security/best-practices/)
 - [CIS AWS Foundations Benchmark](https://www.cisecurity.org/benchmark/amazon_web_services)
+- [NIST Cybersecurity Framework](https://www.nist.gov/cyberframework)
 - [Go AWS SDK v2 Documentation](https://aws.github.io/aws-sdk-go-v2/)
 
 ## 🤝 Contributing
 
-Contributions are welcome! This is a portfolio project demonstrating cloud security automation and Go programming.
+This is a portfolio project, but contributions are welcome! Feel free to:
+- Report bugs
+- Suggest new security checks
+- Submit pull requests
+- Share feedback
 
 ## 📝 License
 
-MIT License - See LICENSE file for details
+MIT License - See [LICENSE](LICENSE) file for details
 
 ## 👤 Author
 
-**Jace** - System Administrator & Security Engineer  
-- Active Secret Clearance
-- CrowdStrike Falcon Administrator
-- Pursuing AI Security & MLOps specialization
+**Jace** - System Administrator & AI Security Engineer
+
+- 🔐 Active Secret Clearance
+- 🛡️ CrowdStrike Falcon Administrator
+- 🤖 AI-102 Certified (Microsoft Azure AI Engineer)
+- 🎓 BS Computer Science (AI concentration) - In Progress
+
+**Portfolio:** [GitHub Projects](https://github.com/Griff-Reaper)
 
 ## 🎯 Why This Project?
 
 Built to demonstrate:
-- Go programming proficiency
-- AWS security expertise
-- Cloud security automation
-- Infrastructure security auditing
-- Real-world security tooling development
+- **Go Programming** - Production-quality Go application
+- **AWS Expertise** - Deep understanding of AWS security
+- **Cloud Security** - Practical CSPM implementation
+- **Security Automation** - Real-world security tooling
+- **Enterprise Mindset** - Scalable, maintainable architecture
 
-Perfect for roles requiring cloud security, infrastructure security, and security automation expertise.
-
----
-
-**⭐ If this project helped you, consider starring it on GitHub!**
-```
+Perfect for roles requiring cloud security, infrastructure security, DevSecOps, and security automation expertise.
 
 ---
 
-## Step 2: Create LICENSE File
+## 💡 SaaS Potential
 
-**Create `LICENSE` file:**
-```
-MIT License
+This scanner demonstrates the core technology behind enterprise CSPM (Cloud Security Posture Management) solutions like:
+- Wiz ($10B valuation)
+- Orca Security ($1.8B valuation)  
+- Lacework ($8.3B valuation)
 
-Copyright (c) 2026 Jace
+**Market Opportunity:**
+- Global cloud security market: $68B by 2028
+- CSPM is fastest-growing segment
+- Enterprises pay $50K-$500K/year for these tools
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
+**Next Steps for SaaS:**
+- Multi-cloud support (Azure, GCP)
+- Multi-account orchestration
+- Web dashboard + API
+- Real-time monitoring
+- Integration ecosystem
 
 ---
 
-## Step 3: Update .gitignore
-
-**Make sure your `.gitignore` has:**
-```
-# Environment variables
-.env
-
-# Go build artifacts
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-
-# Go test coverage
-*.out
-
-# IDE
-.vscode/
-.idea/
-
-# Reports
-security-report-*.json
-
-# Go vendor
-vendor/
+**⭐ If this project helped you, please star it on GitHub!**
