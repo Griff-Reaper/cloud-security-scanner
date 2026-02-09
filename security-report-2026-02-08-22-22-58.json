@@ -1,0 +1,21 @@
+{
+  "scan_time": "2026-02-08T22:22:58.2902642-05:00",
+  "region": "us-east-1",
+  "findings": [
+    {
+      "check_name": "IAM User Without MFA",
+      "severity": "HIGH",
+      "resource": "cspm-audit-user",
+      "description": "IAM user does not have MFA (multi-factor authentication) enabled",
+      "remediation": "Enable MFA: AWS Console → IAM → Users → cspm-audit-user → Security credentials → Assign MFA device → Use virtual MFA device (Google Authenticator, Authy, etc.)",
+      "timestamp": "2026-02-08T22:22:58.8693782-05:00"
+    }
+  ],
+  "summary": {
+    "critical": 0,
+    "high": 1,
+    "medium": 0,
+    "low": 0,
+    "total": 1
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "scan_time": "2026-02-08T23:33:52.6975694-05:00",
+  "region": "us-east-1",
+  "findings": [
+    {
+      "check_name": "CloudTrail Not Enabled",
+      "severity": "CRITICAL",
+      "resource": "Account",
+      "description": "No CloudTrail trails configured - API activity logging is disabled",
+      "remediation": "Enable CloudTrail: AWS Console → CloudTrail → Create trail → Apply trail to all regions → Enable log file validation → Create new S3 bucket for logs",
+      "timestamp": "2026-02-08T23:33:53.7554869-05:00"
+    }
+  ],
+  "summary": {
+    "critical": 1,
+    "high": 0,
+    "medium": 0,
+    "low": 0,
+    "total": 1
+  }
+}
