@@ -13,7 +13,7 @@
 
 ## 🎯 What It Does
 
-Comprehensive security scanning across **5 AWS services** with **14 security checks**:
+Enterprise-grade security scanning across **5 AWS services** with **14 security checks**, **compliance framework mapping**, and **cost/risk analysis**:
 
 ### 📦 S3 Security (3 checks)
 - ✅ Public access block configuration
@@ -39,6 +39,19 @@ Comprehensive security scanning across **5 AWS services** with **14 security che
 - ✅ Active logging status
 - ✅ Multi-region coverage
 - ✅ Log file validation
+
+### 💰 Cost & Risk Analysis
+- ✅ Monthly AWS resource costs
+- ✅ Financial risk exposure calculation
+- ✅ Potential savings from remediation
+- ✅ Business impact assessment
+
+### 📋 Compliance Framework Mapping
+- ✅ CIS AWS Foundations Benchmark
+- ✅ PCI-DSS requirements
+- ✅ SOC 2 controls
+- ✅ HIPAA regulations
+- ✅ NIST 800-53 standards
 
 ## 🚀 Quick Start
 
@@ -275,13 +288,15 @@ Remediation: Start logging in CloudTrail console
 ## 🎨 Features
 
 - ✅ **14 Security Checks** across 5 AWS services
+- ✅ **Compliance Mapping** - CIS, PCI-DSS, SOC2, HIPAA, NIST
+- ✅ **Cost Analysis** - Monthly costs + risk exposure
+- ✅ **ROI Calculation** - Potential annual savings
 - ✅ **Actionable Remediation** - Step-by-step fix instructions
 - ✅ **Severity Classification** - Critical, High, Medium, Low
-- ✅ **JSON Reports** - Machine-readable output
+- ✅ **Multiple Output Formats** - JSON, HTML, text
+- ✅ **CLI Flags** - Filter, format, region selection
 - ✅ **Color-Coded Terminal** - Easy-to-read results
 - ✅ **Production Ready** - Error handling, logging, validation
-- ✅ **Fast Scanning** - Concurrent API calls
-- ✅ **Zero Dependencies** - Self-contained binary
 
 ## 🔮 Roadmap
 

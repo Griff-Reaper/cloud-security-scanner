@@ -1,0 +1,45 @@
+{
+  "scan_time": "2026-02-09T00:40:11.4036891-05:00",
+  "region": "us-east-1",
+  "findings": [
+    {
+      "check_name": "IAM User Without MFA",
+      "severity": "HIGH",
+      "resource": "cspm-audit-user",
+      "description": "IAM user does not have MFA (multi-factor authentication) enabled",
+      "remediation": "Enable MFA: AWS Console → IAM → Users → cspm-audit-user → Security credentials → Assign MFA device → Use virtual MFA device (Google Authenticator, Authy, etc.)",
+      "compliance": {
+        "cis_benchmark": "1.2",
+        "frameworks": [
+          "PCI-DSS 8.3",
+          "SOC2 CC6.1",
+          "NIST 800-53 IA-2"
+        ]
+      },
+      "timestamp": "2026-02-09T00:40:11.9971063-05:00"
+    },
+    {
+      "check_name": "CloudTrail Not Enabled",
+      "severity": "CRITICAL",
+      "resource": "Account",
+      "description": "No CloudTrail trails configured - API activity logging is disabled",
+      "remediation": "Enable CloudTrail: AWS Console → CloudTrail → Create trail → Apply trail to all regions → Enable log file validation → Create new S3 bucket for logs",
+      "compliance": {
+        "cis_benchmark": "3.1",
+        "frameworks": [
+          "PCI-DSS 10.1",
+          "SOC2 CC7.2",
+          "HIPAA 164.312(b)"
+        ]
+      },
+      "timestamp": "2026-02-09T00:40:12.3733224-05:00"
+    }
+  ],
+  "summary": {
+    "critical": 1,
+    "high": 1,
+    "medium": 0,
+    "low": 0,
+    "total": 2
+  }
+}

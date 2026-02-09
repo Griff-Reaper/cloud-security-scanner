@@ -19,14 +19,29 @@ import (
 	"github.com/joho/godotenv"
 )
 
+// CostEstimate holds cost information
+type CostEstimate struct {
+	MonthlyCost      float64 `json:"monthly_cost,omitempty"`
+	PotentialSavings float64 `json:"potential_savings,omitempty"`
+	CostImpact       string  `json:"cost_impact,omitempty"`
+}
+
+// ComplianceMapping holds compliance framework references
+type ComplianceMapping struct {
+	CISBenchmark string   `json:"cis_benchmark,omitempty"`
+	Framework    []string `json:"frameworks,omitempty"`
+}
+
 // Finding represents a security issue discovered
 type Finding struct {
-	CheckName    string    `json:"check_name"`
-	Severity     string    `json:"severity"`
-	Resource     string    `json:"resource"`
-	Description  string    `json:"description"`
-	Remediation  string    `json:"remediation"`
-	Timestamp    time.Time `json:"timestamp"`
+	CheckName    string            `json:"check_name"`
+	Severity     string            `json:"severity"`
+	Resource     string            `json:"resource"`
+	Description  string            `json:"description"`
+	Remediation  string            `json:"remediation"`
+	Compliance   ComplianceMapping `json:"compliance"`
+	Cost         CostEstimate      `json:"cost"`
+	Timestamp    time.Time         `json:"timestamp"`
 }
 
 // Report holds all findings from the scan
@@ -39,11 +54,13 @@ type Report struct {
 
 // Summary provides count of findings by severity
 type Summary struct {
-	Critical int `json:"critical"`
-	High     int `json:"high"`
-	Medium   int `json:"medium"`
-	Low      int `json:"low"`
-	Total    int `json:"total"`
+	Critical              int     `json:"critical"`
+	High                  int     `json:"high"`
+	Medium                int     `json:"medium"`
+	Low                   int     `json:"low"`
+	Total                 int     `json:"total"`
+	TotalMonthlyCost      float64 `json:"total_monthly_cost"`
+	TotalPotentialSavings float64 `json:"total_potential_savings"`
 }
 
 // CLIFlags holds command-line configuration
@@ -123,6 +140,37 @@ func main() {
 		report.Findings = filtered
 	}
 
+	// Calculate costs and savings
+var totalMonthlyCost float64
+var totalPotentialSavings float64
+
+for i := range report.Findings {
+	finding := &report.Findings[i]
+	
+	// Calculate cost based on finding type
+	var monthlyCost float64
+	switch {
+	case strings.Contains(finding.CheckName, "S3"):
+		monthlyCost = estimateS3BucketCost([]Finding{*finding})
+	case strings.Contains(finding.CheckName, "RDS"):
+		monthlyCost = estimateRDSCost("t3.small", false, false)
+	case strings.Contains(finding.CheckName, "CloudTrail"):
+		monthlyCost = estimateCloudTrailCost()
+	}
+	
+	// Calculate potential savings
+	savings := calculatePotentialSavings(finding.CheckName, finding.Severity)
+	
+	finding.Cost = CostEstimate{
+		MonthlyCost:      monthlyCost,
+		PotentialSavings: savings,
+		CostImpact:       getCostImpact(savings),
+	}
+	
+	totalMonthlyCost += monthlyCost
+	totalPotentialSavings += savings
+}
+
 	// Calculate summary
 	for _, finding := range report.Findings {
 		report.Summary.Total++
@@ -137,7 +185,11 @@ func main() {
 			report.Summary.Low++
 		}
 	}
-
+	
+	// Add cost totals to summary
+	report.Summary.TotalMonthlyCost = totalMonthlyCost
+	report.Summary.TotalPotentialSavings = totalPotentialSavings
+	
 	// Print summary
 	if !flags.Quiet {
 		fmt.Println("\n" + strings.Repeat("=", 60))
@@ -148,7 +200,20 @@ func main() {
 		color.Cyan.Printf("🟡 Medium:   %d\n", report.Summary.Medium)
 		color.Green.Printf("🟢 Low:      %d\n", report.Summary.Low)
 		color.Bold.Printf("📝 Total:    %d\n", report.Summary.Total)
+
+		// Cost analysis section
+	if report.Summary.TotalMonthlyCost > 0 || report.Summary.TotalPotentialSavings > 0 {
+		fmt.Println(strings.Repeat("-", 60))
+		color.Bold.Println("💰 COST ANALYSIS")
+		if report.Summary.TotalMonthlyCost > 0 {
+			fmt.Printf("💵 Monthly Resource Cost:    $%.2f\n", report.Summary.TotalMonthlyCost)
+		}
+		if report.Summary.TotalPotentialSavings > 0 {
+			color.Red.Printf("⚠️  Monthly Risk Exposure:    $%.2f\n", report.Summary.TotalPotentialSavings)
+			color.Green.Printf("✅ Annual Risk Reduction:    $%.2f/year\n", report.Summary.TotalPotentialSavings*12)
+		}
 	}
+}
 
 	// Generate report based on output format
 	var reportData []byte
@@ -317,12 +382,16 @@ func checkS3Buckets(ctx context.Context, client *s3.Client, quiet bool) []Findin
 
 		if err != nil || publicAccessBlock.PublicAccessBlockConfiguration == nil {
 			findings = append(findings, Finding{
-				CheckName:   "S3 Public Access",
-				Severity:    "HIGH",
-				Resource:    bucketName,
-				Description: "S3 bucket does not have public access block enabled",
-				Remediation: fmt.Sprintf("Enable public access block: AWS Console → S3 → %s → Permissions → Block public access → Edit → Enable all settings", bucketName),
-				Timestamp:   time.Now(),
+					CheckName:   "S3 Public Access",
+					Severity:    "HIGH",
+					Resource:    bucketName,
+					Description: "S3 bucket does not have public access block enabled",
+					Remediation: fmt.Sprintf("Enable public access block: AWS Console → S3 → %s → Permissions → Block public access → Edit → Enable all settings", bucketName),
+					Compliance: ComplianceMapping{
+						CISBenchmark: "2.1.5",
+						Framework:    []string{"PCI-DSS 1.2.1", "SOC2 CC6.1", "HIPAA 164.312(a)(1)"},
+					},
+					Timestamp: time.Now(),
 			})
 		} else {
 			config := publicAccessBlock.PublicAccessBlockConfiguration
@@ -334,7 +403,11 @@ func checkS3Buckets(ctx context.Context, client *s3.Client, quiet bool) []Findin
 					Resource:    bucketName,
 					Description: "S3 bucket has incomplete public access block configuration",
 					Remediation: fmt.Sprintf("Complete public access block settings: AWS Console → S3 → %s → Permissions → Block public access → Enable all four settings", bucketName),
-					Timestamp:   time.Now(),
+					Compliance: ComplianceMapping{
+						CISBenchmark: "2.1.5",
+						Framework:    []string{"PCI-DSS 1.2.1", "SOC2 CC6.1", "HIPAA 164.312(a)(1)"},
+					},
+					Timestamp: time.Now(),
 				})
 			}
 		}
@@ -350,7 +423,11 @@ func checkS3Buckets(ctx context.Context, client *s3.Client, quiet bool) []Findin
 				Resource:    bucketName,
 				Description: "S3 bucket does not have default encryption enabled",
 				Remediation: fmt.Sprintf("Enable default encryption: AWS Console → S3 → %s → Properties → Default encryption → Edit → Enable with SSE-S3 or SSE-KMS", bucketName),
-				Timestamp:   time.Now(),
+				Compliance: ComplianceMapping{
+					CISBenchmark: "2.1.1",
+					Framework:    []string{"PCI-DSS 3.4", "SOC2 CC6.1", "HIPAA 164.312(a)(2)(iv)"},
+				},
+				Timestamp: time.Now(),
 			})
 		}
 	}
@@ -403,7 +480,11 @@ func checkSecurityGroups(ctx context.Context, client *ec2.Client, quiet bool) []
 						Resource:    fmt.Sprintf("%s (%s)", sgName, sgID),
 						Description: fmt.Sprintf("Security group allows inbound traffic from 0.0.0.0/0 on %s", port),
 						Remediation: remediation,
-						Timestamp:   time.Now(),
+						Compliance: ComplianceMapping{
+							CISBenchmark: "5.2",
+							Framework:    []string{"PCI-DSS 1.3", "SOC2 CC6.6", "NIST 800-53 AC-4"},
+						},
+						Timestamp: time.Now(),
 					})
 				}
 			}
@@ -441,7 +522,11 @@ func checkIAMUsers(ctx context.Context, client *iam.Client, quiet bool) []Findin
 				Resource:    userName,
 				Description: "IAM user does not have MFA (multi-factor authentication) enabled",
 				Remediation: fmt.Sprintf("Enable MFA: AWS Console → IAM → Users → %s → Security credentials → Assign MFA device → Use virtual MFA device (Google Authenticator, Authy, etc.)", userName),
-				Timestamp:   time.Now(),
+				Compliance: ComplianceMapping{
+					CISBenchmark: "1.2",
+					Framework:    []string{"PCI-DSS 8.3", "SOC2 CC6.1", "NIST 800-53 IA-2"},
+				},
+				Timestamp: time.Now(),
 			})
 		}
 
@@ -460,7 +545,11 @@ func checkIAMUsers(ctx context.Context, client *iam.Client, quiet bool) []Findin
 						Resource:    fmt.Sprintf("%s (%s)", userName, *key.AccessKeyId),
 						Description: fmt.Sprintf("IAM access key is %d days old (recommend rotation every 90 days)", int(keyAge.Hours()/24)),
 						Remediation: fmt.Sprintf("Rotate access key: AWS Console → IAM → Users → %s → Security credentials → Create new access key → Update applications → Deactivate old key → Delete after verification", userName),
-						Timestamp:   time.Now(),
+						Compliance: ComplianceMapping{
+							CISBenchmark: "1.4",
+							Framework:    []string{"PCI-DSS 8.2.4", "SOC2 CC6.1"},
+						},
+						Timestamp: time.Now(),
 					})
 				}
 			}
@@ -494,7 +583,11 @@ func checkRDSInstances(ctx context.Context, client *rds.Client, quiet bool) []Fi
 				Resource:    dbName,
 				Description: "RDS database instance is publicly accessible from the internet",
 				Remediation: fmt.Sprintf("Disable public access: AWS Console → RDS → Databases → %s → Modify → Connectivity → Additional configuration → Publicly accessible → No → Apply immediately", dbName),
-				Timestamp:   time.Now(),
+				Compliance: ComplianceMapping{
+					CISBenchmark: "6.4",
+					Framework:    []string{"PCI-DSS 1.3.1", "SOC2 CC6.6", "HIPAA 164.312(e)(1)"},
+				},
+				Timestamp: time.Now(),
 			})
 		}
 
@@ -506,7 +599,11 @@ func checkRDSInstances(ctx context.Context, client *rds.Client, quiet bool) []Fi
 				Resource:    dbName,
 				Description: "RDS database does not have encryption at rest enabled",
 				Remediation: fmt.Sprintf("Note: Encryption cannot be enabled on existing instances. Create encrypted snapshot: AWS Console → RDS → Databases → %s → Actions → Take snapshot → Then restore snapshot with encryption enabled", dbName),
-				Timestamp:   time.Now(),
+				Compliance: ComplianceMapping{
+					CISBenchmark: "6.2",
+					Framework:    []string{"PCI-DSS 3.4", "SOC2 CC6.1", "HIPAA 164.312(a)(2)(iv)"},
+				},
+				Timestamp: time.Now(),
 			})
 		}
 
@@ -518,7 +615,11 @@ func checkRDSInstances(ctx context.Context, client *rds.Client, quiet bool) []Fi
 				Resource:    dbName,
 				Description: fmt.Sprintf("RDS backup retention period is only %d days (recommended: 7+ days)", *instance.BackupRetentionPeriod),
 				Remediation: fmt.Sprintf("Increase backup retention: AWS Console → RDS → Databases → %s → Modify → Backup retention period → Set to 7 or higher → Apply immediately", dbName),
-				Timestamp:   time.Now(),
+				Compliance: ComplianceMapping{
+					CISBenchmark: "6.6",
+					Framework:    []string{"SOC2 A1.2", "NIST 800-53 CP-9"},
+				},
+				Timestamp: time.Now(),
 			})
 		}
 
@@ -530,7 +631,11 @@ func checkRDSInstances(ctx context.Context, client *rds.Client, quiet bool) []Fi
 				Resource:    dbName,
 				Description: "RDS instance is not configured for Multi-AZ (high availability)",
 				Remediation: fmt.Sprintf("Enable Multi-AZ: AWS Console → RDS → Databases → %s → Modify → Availability & durability → Multi-AZ deployment → Create a standby instance → Apply immediately", dbName),
-				Timestamp:   time.Now(),
+				Compliance: ComplianceMapping{
+					CISBenchmark: "6.5",
+					Framework:    []string{"SOC2 A1.2"},
+				},
+				Timestamp: time.Now(),
 			})
 		}
 	}
@@ -558,7 +663,11 @@ func checkCloudTrail(ctx context.Context, client *cloudtrail.Client, quiet bool)
 			Resource:    "Account",
 			Description: "No CloudTrail trails configured - API activity logging is disabled",
 			Remediation: "Enable CloudTrail: AWS Console → CloudTrail → Create trail → Apply trail to all regions → Enable log file validation → Create new S3 bucket for logs",
-			Timestamp:   time.Now(),
+			Compliance: ComplianceMapping{
+				CISBenchmark: "3.1",
+				Framework:    []string{"PCI-DSS 10.1", "SOC2 CC7.2", "HIPAA 164.312(b)"},
+			},
+			Timestamp: time.Now(),
 		})
 		return findings
 	}
@@ -578,7 +687,11 @@ func checkCloudTrail(ctx context.Context, client *cloudtrail.Client, quiet bool)
 				Resource:    trailName,
 				Description: "CloudTrail trail exists but is not actively logging",
 				Remediation: fmt.Sprintf("Start logging: AWS Console → CloudTrail → Trails → %s → Logging → Turn on", trailName),
-				Timestamp:   time.Now(),
+				Compliance: ComplianceMapping{
+					CISBenchmark: "3.4",
+					Framework:    []string{"PCI-DSS 10.2", "SOC2 CC7.2"},
+				},
+				Timestamp: time.Now(),
 			})
 		}
 
@@ -590,7 +703,11 @@ func checkCloudTrail(ctx context.Context, client *cloudtrail.Client, quiet bool)
 				Resource:    trailName,
 				Description: "CloudTrail trail only logs events in one region",
 				Remediation: fmt.Sprintf("Enable multi-region: AWS Console → CloudTrail → Trails → %s → General details → Edit → Apply trail to all regions", trailName),
-				Timestamp:   time.Now(),
+				Compliance: ComplianceMapping{
+					CISBenchmark: "3.1",
+					Framework:    []string{"SOC2 CC7.2"},
+				},
+				Timestamp: time.Now(),
 			})
 		}
 
@@ -602,7 +719,11 @@ func checkCloudTrail(ctx context.Context, client *cloudtrail.Client, quiet bool)
 				Resource:    trailName,
 				Description: "CloudTrail log file validation is not enabled (cannot verify log integrity)",
 				Remediation: fmt.Sprintf("Enable log validation: AWS Console → CloudTrail → Trails → %s → General details → Edit → Enable log file validation", trailName),
-				Timestamp:   time.Now(),
+				Compliance: ComplianceMapping{
+					CISBenchmark: "3.2",
+					Framework:    []string{"PCI-DSS 10.5.2", "SOC2 CC7.2"},
+				},
+				Timestamp: time.Now(),
 			})
 		}
 	}
@@ -750,4 +871,100 @@ func generateTextReport(report Report) string {
 	}
 
 	return text.String()
+}
+
+// Cost estimation helpers - rough AWS pricing estimates
+func estimateS3BucketCost(findings []Finding) float64 {
+	// S3 storage: ~$0.023 per GB/month
+	// Assume average bucket is 100GB
+	return 100 * 0.023 // $2.30/month per bucket
+}
+
+func estimateRDSCost(instanceType string, encrypted bool, multiAZ bool) float64 {
+	// db.t3.micro: $15/month
+	// db.t3.small: $30/month
+	// db.t3.medium: $60/month
+	// Rough average
+	baseCost := 40.0
+	
+	// Multi-AZ doubles cost
+	if multiAZ {
+		baseCost *= 2
+	}
+	
+	return baseCost
+}
+
+func estimateSecurityGroupCost() float64 {
+	// Security groups are free, but open ports = potential breach cost
+	// Estimated incident response cost for breach
+	return 0 // No direct cost, but high risk
+}
+
+func estimateCloudTrailCost() float64 {
+	// CloudTrail: First trail free, $2 per 100,000 events
+	// Typical account: ~$10-20/month
+	return 15.0
+}
+
+func calculatePotentialSavings(checkName string, severity string) float64 {
+	// Estimated savings from remediating issues
+	switch checkName {
+	case "RDS Public Access":
+		// Preventing breach: Average cost $4.24M (IBM 2023)
+		// Conservative estimate: prevent $100k potential incident
+		return 100000.0 / 12 // Monthly risk value
+		
+	case "Security Group Open to Internet":
+		if severity == "CRITICAL" {
+			return 50000.0 / 12 // SSH/RDP exposure = $4k/month risk
+		}
+		return 5000.0 / 12 // Other ports = $400/month risk
+		
+	case "CloudTrail Not Enabled":
+		// Without logging, can't detect breaches
+		// Estimated cost of undetected breach
+		return 20000.0 / 12 // $1,666/month risk
+		
+	case "IAM User Without MFA":
+		// Account takeover risk
+		return 10000.0 / 12 // $833/month risk
+		
+	case "RDS Encryption":
+		// Compliance violation fines + breach risk
+		return 15000.0 / 12 // $1,250/month risk
+		
+	case "S3 Public Access":
+		// Data leak risk
+		return 25000.0 / 12 // $2,083/month risk
+		
+	case "S3 Encryption":
+		// Compliance + data exposure
+		return 5000.0 / 12 // $416/month risk
+		
+	case "RDS Multi-AZ":
+		// Downtime cost: $5,600/minute (Gartner)
+		// Assume 2 outages/year, 30min each = $336k
+		return 336000.0 / 12 // $28k/month risk
+		
+	case "RDS Backup Retention":
+		// Data loss + recovery cost
+		return 8000.0 / 12 // $666/month risk
+		
+	default:
+		return 0
+	}
+}
+
+func getCostImpact(savings float64) string {
+	if savings >= 5000 {
+		return "CRITICAL - High financial risk"
+	} else if savings >= 1000 {
+		return "HIGH - Significant cost exposure"
+	} else if savings >= 100 {
+		return "MEDIUM - Moderate risk"
+	} else if savings > 0 {
+		return "LOW - Minor cost consideration"
+	}
+	return "No direct cost impact"
 }
